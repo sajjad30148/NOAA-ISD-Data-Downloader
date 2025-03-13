@@ -41,7 +41,9 @@ warnings.filterwarnings('ignore')
 # User Input
 # =============================================================================
 
-year_list = [2024] # Give a list of years; eg. [2024] for single year, or [2023, 2024, 2020] for different years, or list(range(2010,2025)) for year from 2010 to 2024 (2025 is exclusive)
+year_list = [2023] # Give a list of years; eg. [2024] for single year, or [2023, 2024, 2020] for different years, or list(range(2010,2025)) for year from 2010 to 2024 (2025 is exclusive)
+
+keep_non_usa_data = 0  # 0 means delete non-USA weather station data, 1 means keep it
 
 
 # =============================================================================
@@ -316,11 +318,18 @@ def usa_weatherstation_filter(year, raw_data_directory, output_folderpath):
             f.write(f"No USA-based weather stations found for the year {year}.")
         print(f"No USA-based weather stations found for {year}. A text file has been created.")
         
-    # Rename the remaining folder to "Rest"
-    rest_directory = os.path.join(output_folderpath, f"{year} Weather Station Data - Rest")
-    if os.path.exists(raw_data_directory) and not os.path.exists(rest_directory):
-        os.rename(raw_data_directory, rest_directory)
-        print(f"Renamed '{raw_data_directory}' to '{rest_directory}'")
+    # Delete non-USA data
+    if not keep_non_usa_data:
+        shutil.rmtree(raw_data_directory, ignore_errors=True)
+        print(f"Deleted non-USA weather data for {year}.")
+
+    # Keep non-USA data
+    else:
+        rest_directory = os.path.join(output_folderpath, f"{year} Weather Station Data - Rest")
+
+        if os.path.exists(raw_data_directory) and not os.path.exists(rest_directory):
+            os.rename(raw_data_directory, rest_directory)
+            print(f"Renamed '{raw_data_directory}' to '{rest_directory}'.")
 
 
 # =============================================================================
