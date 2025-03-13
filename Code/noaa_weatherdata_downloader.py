@@ -7,8 +7,9 @@
 #
 # File: noaa_weatherdata_downloader.py
 #       - this code will download the NOAA ISD data (https://www.ncei.noaa.gov/products/land-based-station/integrated-surface-database) for a given year / list of years.
-#       - it will download all the weather stations .csv file of each year from the website and save in "{year} Weather Station Data - All" folder
-#       - then, it will separate the USA based weather stations by checking each weather station's name and sort them state-wise in "{year} Weather Station Data - USA" folder
+#       - first, it will download all the weather stations .csv file of each year from the website and save in "{year} Weather Station Data - All" folder
+#       - then, it will separate the USA based weather stations by checking each weather station's name and move them state-wise in "{year} Weather Station Data - USA" folder
+#       - once it moves all the usa based stations, it will remain the "{year} Weather Station Data - All" to "{year} Weather Station Data - Rest"
 #       - note: some year may take longer time due to download interruption, in that case this script will keep trying (max_retries = 10) to download
 # =============================================================================
 
@@ -37,7 +38,7 @@ warnings.filterwarnings('ignore')
 # User Input
 # =============================================================================
 
-year_list = [2000] # Give a list of years; eg. [2024] for single year, or [2023, 2024, 2020] for different years, or list(range(2010,2025)) for year from 2010 to 2024 (2025 is exclusive)
+year_list = [1940] # Give a list of years; eg. [2024] for single year, or [2023, 2024, 2020] for different years, or list(range(2010,2025)) for year from 2010 to 2024 (2025 is exclusive)
 
 
 # =============================================================================
@@ -45,19 +46,32 @@ year_list = [2000] # Give a list of years; eg. [2024] for single year, or [2023,
 # =============================================================================
 
 # Get the current script folder path
-script_folderpath = os.getcwd()
+script_filepath = os.path.abspath(__file__)
+script_folderpath = os.path.dirname(script_filepath) 
 
 # Get the master folder
 parent_folderpath = os.path.dirname(script_folderpath)
 
 # Get weather data folder path
-weather_data_folderpath = os.path.join(parent_folderpath, 'NOAA ISD Data')
+weather_data_folderpath = os.path.join(parent_folderpath, 'Output - NOAA ISD Data')
 os.makedirs(weather_data_folderpath, exist_ok = True) # Create folder if does not exist
 
 
 # =============================================================================
 # Functions
 # =============================================================================
+
+def find_existing_tar_file(year):
+    """
+    Searches for an existing {year}.tar.gz file in the script's directory and subdirectories.
+    Returns the file path if found, otherwise returns None.
+    """
+    for root, _, files in os.walk(parent_folderpath):  # Search in all folders
+        for file in files:
+            if file == f"{year}.tar.gz":
+                return os.path.join(root, file)  # Return the full path of the found file
+    return None  # Return None if no file is found
+
 
 def weatherdata_download_and_save(year, save_dir, max_retries = 10, retry_delay = 30):
     """
@@ -228,6 +242,7 @@ def usa_weatherstation_filter(year, raw_data_directory, output_folderpath):
     Output:
     - Filtered CSV files sorted into state-wise folders under `output_folderpath/{year} Weather Station Data - USA/{state}`.
     - A summary file `{year}_USA Weather Stations.csv` saved in `output_folderpath`.
+    - Remaining non-USA data folder renamed to `{year} Weather Station Data - Rest`.
     
     Raises:
     - ValueError if no USA weather stations are found (fixed in the updated version).
@@ -238,6 +253,7 @@ def usa_weatherstation_filter(year, raw_data_directory, output_folderpath):
 
     # Summary dataframe
     summary_df = []
+    usa_files = set()  # Track files that are USA-based
 
     # Access to all csv files
     for file in range(len(csv_files)):
@@ -274,8 +290,11 @@ def usa_weatherstation_filter(year, raw_data_directory, output_folderpath):
 
                         destination_path = os.path.join(state_folderpath, os.path.basename(csv_filepath))
 
-                        # Save output csv
-                        shutil.copy2(csv_filepath, destination_path)
+                        # Move file instead of copy (saves memory)
+                        shutil.move(csv_filepath, destination_path)
+                        
+                        # Track this file as moved
+                        usa_files.add(file)
 
                         # Create summary excel
                         summary_df.append(pd.DataFrame({'CSV': [csv_files[file]], 'State': [state_name]}))
@@ -293,6 +312,12 @@ def usa_weatherstation_filter(year, raw_data_directory, output_folderpath):
         with open(no_data_filepath, 'w') as f:
             f.write(f"No USA-based weather stations found for the year {year}.")
         print(f"No USA-based weather stations found for {year}. A text file has been created.")
+        
+    # Rename the remaining folder to "Rest"
+    rest_directory = os.path.join(output_folderpath, f"{year} Weather Station Data - Rest")
+    if os.path.exists(raw_data_directory) and not os.path.exists(rest_directory):
+        os.rename(raw_data_directory, rest_directory)
+        print(f"Renamed '{raw_data_directory}' to '{rest_directory}'")
 
 
 # =============================================================================
@@ -305,15 +330,21 @@ for year in year_list:
     output_folderpath = os.path.join(weather_data_folderpath, str(year))
     os.makedirs(output_folderpath, exist_ok = True)
 
-    # Keep retrying download until successful
-    while True:
-        downloaded_zipfile_path = weatherdata_download_and_save(year, output_folderpath)
+    # Search for the {year}.tar.gz file in all folders
+    downloaded_zipfile_path = find_existing_tar_file(year)
 
-        if downloaded_zipfile_path is not None:
-            break  # Exit loop when download is successful
-        else:
-            print(f"Retrying full download for {year} in 1 minute...")
-            time.sleep(60)  # Wait before retrying
+    if downloaded_zipfile_path:
+        print(f"Found existing {year}.tar.gz at {downloaded_zipfile_path}. Skipping download.")
+    else:
+        # Keep retrying download until successful
+        while True:
+            downloaded_zipfile_path = weatherdata_download_and_save(year, output_folderpath)
+
+            if downloaded_zipfile_path is not None:
+                break  # Exit loop when download is successful
+            else:
+                print(f"Retrying full download for {year} in 1 minute...")
+                time.sleep(60)  # Wait before retrying
 
     # Extract from downloaded tar (zip) file
     extract_directory = weatherdata_extract_file(downloaded_zipfile_path, output_folderpath)
