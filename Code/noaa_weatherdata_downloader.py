@@ -7,10 +7,13 @@
 #
 # File: noaa_weatherdata_downloader.py
 #       - this code will download the NOAA ISD data (https://www.ncei.noaa.gov/products/land-based-station/integrated-surface-database) for a given year / list of years.
-#       - first, it will download all the weather stations .csv file of each year from the website and save in "{year} Weather Station Data - All" folder
-#       - then, it will separate the USA based weather stations by checking each weather station's name and move them state-wise in "{year} Weather Station Data - USA" folder
-#       - once it moves all the usa based stations, it will remain the "{year} Weather Station Data - All" to "{year} Weather Station Data - Rest"
-#       - note: some year may take longer time due to download interruption, in that case this script will keep trying (max_retries = 10) to download
+#       - first, it will download all the weather stations .csv file of each year from the website and save in "{year} Weather Station Data - All" folder.
+#       - then, it will separate the USA based weather stations by checking each weather station's name and move them state-wise in "{year} Weather Station Data - USA" folder.
+#       - once it moves all the usa based stations, it will remain the "{year} Weather Station Data - All" to "{year} Weather Station Data - Rest".
+# 
+# Note:    
+#       - some year may take longer time due to download interruption, in that case this script will keep trying (max_retries = 10) to download.
+#       - if the user have the .tar.zip file downloaded already, it can be pasted in any folder within the main folder. In that case, the code will skip downloading again and use the existing downloaded file to proceed. 
 # =============================================================================
 
 
@@ -38,7 +41,7 @@ warnings.filterwarnings('ignore')
 # User Input
 # =============================================================================
 
-year_list = [1940] # Give a list of years; eg. [2024] for single year, or [2023, 2024, 2020] for different years, or list(range(2010,2025)) for year from 2010 to 2024 (2025 is exclusive)
+year_list = [2024] # Give a list of years; eg. [2024] for single year, or [2023, 2024, 2020] for different years, or list(range(2010,2025)) for year from 2010 to 2024 (2025 is exclusive)
 
 
 # =============================================================================
