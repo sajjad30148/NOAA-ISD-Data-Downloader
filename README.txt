@@ -14,6 +14,10 @@ This script downloads NOAA ISD (Integrated Surface Database) data for a given ye
 - The script will automatically retry failed downloads.
 - If the .tar.gz file is already partially downloaded, it will resume from where it stopped.
 
+
+- if the user have the .tar.zip file downloaded already, it can be pasted in any folder within the main folder. 
+In that case, the code will skip downloading again and use the existing downloaded file to proceed. 
+
 ---
 
 ## How to Use
