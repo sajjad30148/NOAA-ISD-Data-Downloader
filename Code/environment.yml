@@ -1,0 +1,12 @@
+name: noaa-weatherdata
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python>=3.8
+  - pandas
+  - requests
+  - tqdm
+  - tarfile
+  - re  # Regular expressions are built-in, but mentioning for clarity
+  - urllib3
