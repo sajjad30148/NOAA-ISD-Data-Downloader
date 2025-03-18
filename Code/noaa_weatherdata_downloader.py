@@ -41,7 +41,7 @@ warnings.filterwarnings('ignore')
 # User Input
 # =============================================================================
 
-year_list = [2000,2001,2002] # Give a list of years; eg. [2024] for single year, or [2023, 2024, 2020] for different years, or list(range(2010,2025)) for year from 2010 to 2024 (2025 is exclusive)
+year_list = [2006] # Give a list of years; eg. [2024] for single year, or [2023, 2024, 2020] for different years, or list(range(2010,2025)) for year from 2010 to 2024 (2025 is exclusive)
 
 keep_non_usa_data = 0  # 0 means delete non-USA weather station data, 1 means keep it
 
@@ -260,11 +260,20 @@ def usa_weatherstation_filter(year, raw_data_directory, output_folderpath):
     Output:
     - Filtered CSV files sorted into state-wise folders under `output_folderpath/{year} Weather Station Data - USA/{state}`.
     - A summary file `{year}_USA Weather Stations.csv` saved in `output_folderpath`.
-    - Remaining non-USA data folder renamed to `{year} Weather Station Data - Rest`.
+    - Remaining non-USA data folder renamed to `{year} Weather Station Data - Rest` (if user wants to keep those).
+    - Stations without valid state information are moved to `"USA - No State Assigned"`.
     
     Raises:
     - ValueError if no USA weather stations are found (fixed in the updated version).
     """
+
+    # List of valid US state abbreviations (50 states + DC)
+    valid_us_states = {
+        "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA",
+        "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+        "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT",
+        "VA", "WA", "WV", "WI", "WY", "DC", "PR", "VI"
+    } # included Puerto Rico (PR) and Virgin Islands (VI)
 
     # Get all .csv files from raw weather data folder (all stations)
     csv_files = [filename for filename in os.listdir(raw_data_directory) if filename.endswith('.csv')]
@@ -272,6 +281,10 @@ def usa_weatherstation_filter(year, raw_data_directory, output_folderpath):
     # Summary dataframe
     summary_df = []
     usa_files = set()  # Track files that are USA-based
+
+    # Folder for stations with no valid state
+    no_state_folder = os.path.join(output_folderpath, f"{year} Weather Station Data - USA", "USA - No State Assigned")
+    os.makedirs(no_state_folder, exist_ok=True)
 
     # Access to all csv files
     for file in range(len(csv_files)):
@@ -281,7 +294,7 @@ def usa_weatherstation_filter(year, raw_data_directory, output_folderpath):
             print(csv_files[file])
 
             # Read csv
-            csv_df = pd.read_csv(csv_filepath, low_memory=False)
+            csv_df = pd.read_csv(csv_filepath, low_memory = False)
 
             # Get the station name
             station_name = csv_df.loc[0, 'NAME']
@@ -298,24 +311,34 @@ def usa_weatherstation_filter(year, raw_data_directory, output_folderpath):
                     state_name = extract_state_abbreviation(station_name)
                     
                     # Check if state name is not in the name
-                    if state_name is not None:
+                    if state_name is not None and state_name in valid_us_states:
                     
                         print(state_name)
 
                         # Create output folder for each state
                         state_folderpath = os.path.join(output_folderpath, f"{year} Weather Station Data - USA", state_name)
-                        os.makedirs(state_folderpath, exist_ok=True)
 
-                        destination_path = os.path.join(state_folderpath, os.path.basename(csv_filepath))
+                    else:
+                        print(f"{station_name} does not have a valid state. Moving to 'USA - No State Assigned' folder.")
+                        state_folderpath = no_state_folder
 
-                        # Move file instead of copy (saves memory)
-                        shutil.move(csv_filepath, destination_path)
+                    os.makedirs(state_folderpath, exist_ok = True)
+
+                    destination_path = os.path.join(state_folderpath, os.path.basename(csv_filepath))
+
+                    # Move file instead of copy (saves memory)
+                    shutil.move(csv_filepath, destination_path)
                         
-                        # Track this file as moved
-                        usa_files.add(file)
+                    # Track this file as moved
+                    usa_files.add(file)
 
-                        # Create summary excel
-                        summary_df.append(pd.DataFrame({'CSV': [csv_files[file]], 'State': [state_name]}))
+                    # Create summary excel
+                    summary_df.append(pd.DataFrame({'CSV': [csv_files[file]], 'State': [state_name]}))
+
+    # Delete the 'USA - No State Assigned' folder if empty
+    if os.path.exists(no_state_folder) and not os.listdir(no_state_folder):
+        os.rmdir(no_state_folder)
+        print(f"Deleted empty folder: {no_state_folder}")
 
     # If USA-based weather stations are found, save the summary CSV
     if summary_df:
@@ -333,7 +356,7 @@ def usa_weatherstation_filter(year, raw_data_directory, output_folderpath):
         
     # Delete non-USA data
     if not keep_non_usa_data:
-        shutil.rmtree(raw_data_directory, ignore_errors=True)
+        shutil.rmtree(raw_data_directory, ignore_errors = True)
         print(f"Deleted non-USA weather data for {year}.")
 
     # Keep non-USA data
@@ -344,9 +367,9 @@ def usa_weatherstation_filter(year, raw_data_directory, output_folderpath):
             os.rename(raw_data_directory, rest_directory)
             print(f"Renamed '{raw_data_directory}' to '{rest_directory}'.")
 
-    # 🔹 Ensure empty folders are removed
-    if os.path.exists(raw_data_directory) and not os.listdir(raw_data_directory):
-        os.rmdir(raw_data_directory) 
+    # # 🔹 Ensure empty folders are removed
+    # if os.path.exists(raw_data_directory) and not os.listdir(raw_data_directory):
+    #     os.rmdir(raw_data_directory) 
 
 
 # =============================================================================
